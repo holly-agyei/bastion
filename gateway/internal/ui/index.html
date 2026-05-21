@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Bastion — live</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg:        #0b1020;
+      --panel:     #131a30;
+      --panel-2:   #1a2240;
+      --line:      #28315a;
+      --text:      #d6def0;
+      --muted:     #8b97b8;
+      --green:     #34d399;
+      --red:       #fb7185;
+      --amber:     #fbbf24;
+      --blue:      #60a5fa;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin:0; padding:0; height:100%; background:var(--bg); color:var(--text); font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; }
+    header { padding: 18px 24px; border-bottom: 1px solid var(--line); display:flex; align-items:center; justify-content:space-between; }
+    header h1 { font-size:18px; margin:0; letter-spacing:.02em; }
+    header h1 .sub { color: var(--muted); font-weight: 400; margin-left: 12px; }
+    header .live { color: var(--green); font-size: 12px; }
+    main { padding: 20px 24px 40px; max-width: 1400px; margin: 0 auto; }
+    .row { display: grid; gap: 16px; margin-bottom: 16px; }
+    .row.kpis { grid-template-columns: repeat(4, 1fr); }
+    .row.charts { grid-template-columns: 2fr 1fr; }
+    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+    .panel h2 { margin: 0 0 10px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+    .kpi .val { font-size: 28px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .kpi .unit { color: var(--muted); font-size: 13px; margin-left: 6px; }
+    .kpi .sub { color: var(--muted); font-size: 12px; margin-top: 4px; }
+    .ok    { color: var(--green); }
+    .bad   { color: var(--red); }
+    .warn  { color: var(--amber); }
+    .blue  { color: var(--blue); }
+    canvas { height: 280px !important; }
+    .alerts { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+    .alerts ul { list-style: none; margin: 0; padding: 0; max-height: 280px; overflow-y: auto; }
+    .alerts li {
+      padding: 10px 12px;
+      border-left: 3px solid var(--amber);
+      background: var(--panel-2);
+      border-radius: 4px;
+      margin-bottom: 8px;
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .alerts li .ts { color: var(--muted); margin-right: 8px; }
+    .alerts li.empty { border-left-color: var(--line); color: var(--muted); }
+    .actions { display:flex; gap:8px; align-items:center; flex-wrap: wrap; }
+    .actions label { color: var(--muted); font-size: 12px; }
+    .actions select, .actions button {
+      background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+      border-radius: 6px; padding: 8px 12px; font-size: 13px; cursor: pointer;
+    }
+    .actions button.primary { background: linear-gradient(180deg,#3b82f6,#1d4ed8); border-color: #1d4ed8; }
+    .actions button:disabled { opacity: 0.5; cursor: not-allowed; }
+    code { color: var(--muted); }
+    footer { color: var(--muted); font-size: 12px; padding: 0 24px 24px; max-width: 1400px; margin: 0 auto; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Bastion <span class="sub">edge gateway — live</span></h1>
+    <div class="live">● polling /api/metrics every 1s</div>
+  </header>
+
+  <main>
+    <div class="row kpis">
+      <div class="panel kpi">
+        <h2>Allowed / sec</h2>
+        <div><span class="val ok" id="kpi_allowed">—</span><span class="unit">req/s</span></div>
+        <div class="sub">cumulative window: <span id="kpi_allowed_total">—</span></div>
+      </div>
+      <div class="panel kpi">
+        <h2>Rejected / sec</h2>
+        <div><span class="val bad" id="kpi_rejected">—</span><span class="unit">req/s</span></div>
+        <div class="sub">cumulative window: <span id="kpi_rejected_total">—</span></div>
+      </div>
+      <div class="panel kpi">
+        <h2>p50 latency</h2>
+        <div><span class="val blue" id="kpi_p50">—</span><span class="unit">ms</span></div>
+        <div class="sub">p95: <span id="kpi_p95">—</span> ms</div>
+      </div>
+      <div class="panel kpi">
+        <h2>Last spike alert</h2>
+        <div><span class="val warn" id="kpi_last_alert">none yet</span></div>
+        <div class="sub" id="kpi_alert_count">0 alerts in this session</div>
+      </div>
+    </div>
+
+    <div class="row charts">
+      <div class="panel">
+        <h2>Throughput (last 60 s)</h2>
+        <canvas id="throughputChart"></canvas>
+      </div>
+      <div class="alerts">
+        <h2>Rejection spike alerts <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0;">(autoscaler trigger)</span></h2>
+        <ul id="alertList"><li class="empty">no spikes detected yet</li></ul>
+      </div>
+    </div>
+
+    <div class="row charts">
+      <div class="panel">
+        <h2>Latency (p50 / p95, last 60 s)</h2>
+        <canvas id="latencyChart"></canvas>
+      </div>
+      <div class="panel">
+        <h2>Simulate traffic</h2>
+        <p style="color:var(--muted);font-size:13px;margin-top:0;">
+          Fires HTTP traffic from inside the gateway process against its own
+          <code>/process</code> endpoint. Abusive clients exceed the 200 r/s
+          per-client quota and trigger 429s + Kafka rejection events; honest
+          clients stay under quota and forward through to the gRPC backend.
+        </p>
+        <div class="actions">
+          <label>Profile</label>
+          <select id="simProfile">
+            <option value="mixed">Mixed (sustained 1500 + bursty 3000 / 5 s)</option>
+            <option value="burst">Burst only (3000 abusive r/s × 5 s)</option>
+            <option value="sustained">Sustained only (1500 healthy r/s × 10 s)</option>
+          </select>
+          <button class="primary" id="simRun">Fire simulation</button>
+          <span id="simStatus" style="color:var(--muted);font-size:12px;"></span>
+        </div>
+        <div class="sub" style="margin-top:12px;color:var(--muted);font-size:12px;">
+          Tip: watch the throughput chart split into a green allowed band and
+          a red rejected band, and a spike alert land on the right.
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    Gateway: <code id="footer_origin">—</code> · sliding-window limit: <code id="footer_limit">—</code> · per-client header: <code id="footer_header">—</code>
+  </footer>
+
+<script>
+const fmt = n => n == null ? '—' : (typeof n === 'number' ? n.toLocaleString(undefined, {maximumFractionDigits: n < 10 ? 2 : 0}) : String(n));
+const sparkColor = (ctx, color) => {
+  const c = document.createElement('canvas').getContext('2d');
+  const g = c.createLinearGradient(0, 0, 0, 280);
+  g.addColorStop(0, color + 'cc');
+  g.addColorStop(1, color + '11');
+  return g;
+};
+
+const baseOpts = {
+  animation: false,
+  responsive: true,
+  maintainAspectRatio: false,
+  interaction: { intersect: false, mode: 'index' },
+  scales: {
+    x: {
+      grid: { color: '#1e2748' },
+      ticks: { color: '#8b97b8', maxRotation: 0, autoSkip: true },
+    },
+    y: {
+      grid: { color: '#1e2748' },
+      ticks: { color: '#8b97b8' },
+      beginAtZero: true,
+    },
+  },
+  plugins: {
+    legend: { labels: { color: '#d6def0' } },
+    tooltip: { backgroundColor: '#1a2240', borderColor: '#28315a', borderWidth: 1 },
+  },
+};
+
+const throughputChart = new Chart(document.getElementById('throughputChart'), {
+  type: 'line',
+  data: {
+    labels: [],
+    datasets: [
+      { label: 'allowed/s', data: [], borderColor: '#34d399', backgroundColor: '#34d39922', tension: 0.25, fill: true, pointRadius: 0 },
+      { label: 'rejected/s', data: [], borderColor: '#fb7185', backgroundColor: '#fb718522', tension: 0.25, fill: true, pointRadius: 0 },
+    ],
+  },
+  options: baseOpts,
+});
+
+const latencyChart = new Chart(document.getElementById('latencyChart'), {
+  type: 'line',
+  data: {
+    labels: [],
+    datasets: [
+      { label: 'p50 (ms)', data: [], borderColor: '#60a5fa', backgroundColor: 'transparent', tension: 0.25, pointRadius: 0 },
+      { label: 'p95 (ms)', data: [], borderColor: '#fbbf24', backgroundColor: 'transparent', tension: 0.25, pointRadius: 0 },
+    ],
+  },
+  options: baseOpts,
+});
+
+function tsLabel(ms) {
+  const d = new Date(ms);
+  return d.toLocaleTimeString(undefined, { hour12: false });
+}
+
+async function pollMetrics() {
+  try {
+    const r = await fetch('/api/metrics', { cache: 'no-store' });
+    const s = await r.json();
+    const labels = s.points.map(p => tsLabel(p.ts_ms));
+    throughputChart.data.labels = labels;
+    throughputChart.data.datasets[0].data = s.points.map(p => p.allowed);
+    throughputChart.data.datasets[1].data = s.points.map(p => p.rejected);
+    throughputChart.update('none');
+
+    latencyChart.data.labels = labels;
+    latencyChart.data.datasets[0].data = s.points.map(p => p.p50_ms);
+    latencyChart.data.datasets[1].data = s.points.map(p => p.p95_ms);
+    latencyChart.update('none');
+
+    const last = s.points[s.points.length - 1] || {};
+    document.getElementById('kpi_allowed').textContent  = fmt(last.allowed);
+    document.getElementById('kpi_rejected').textContent = fmt(last.rejected);
+    document.getElementById('kpi_p50').textContent      = fmt(last.p50_ms);
+    document.getElementById('kpi_p95').textContent      = fmt(last.p95_ms);
+    document.getElementById('kpi_allowed_total').textContent  = fmt(s.cumul.allowed);
+    document.getElementById('kpi_rejected_total').textContent = fmt(s.cumul.rejected);
+  } catch (e) {
+    // ignore transient
+  }
+}
+
+async function pollAlerts() {
+  try {
+    const r = await fetch('/api/alerts', { cache: 'no-store' });
+    const alerts = await r.json();
+    const ul = document.getElementById('alertList');
+    if (!alerts.length) {
+      ul.innerHTML = '<li class="empty">no spikes detected yet</li>';
+      document.getElementById('kpi_last_alert').textContent = 'none yet';
+      document.getElementById('kpi_alert_count').textContent = '0 alerts in this session';
+      return;
+    }
+    ul.innerHTML = '';
+    alerts.slice().reverse().forEach(a => {
+      const li = document.createElement('li');
+      const ts = new Date(a.ts_ms).toLocaleTimeString(undefined,{hour12:false});
+      li.innerHTML = `<span class="ts">${ts}</span>spike: <b>${fmt(a.count_in_window)}</b> rejections in ${a.window_sec}s ≥ threshold ${fmt(a.threshold)} → <span style="color:var(--amber);">ASG.scale_out</span>`;
+      ul.appendChild(li);
+    });
+    const last = alerts[alerts.length - 1];
+    document.getElementById('kpi_last_alert').textContent = new Date(last.ts_ms).toLocaleTimeString(undefined,{hour12:false});
+    document.getElementById('kpi_alert_count').textContent = `${alerts.length} alert${alerts.length===1?'':'s'} in this session`;
+  } catch (e) {
+    // ignore
+  }
+}
+
+async function pollConfig() {
+  try {
+    const r = await fetch('/api/config', { cache: 'no-store' });
+    const c = await r.json();
+    document.getElementById('footer_origin').textContent = location.origin;
+    document.getElementById('footer_limit').textContent  = c.limit + ' req / ' + c.window_ms + ' ms';
+    document.getElementById('footer_header').textContent = c.client_header;
+  } catch (e) { /* ignore */ }
+}
+
+document.getElementById('simRun').addEventListener('click', async () => {
+  const btn = document.getElementById('simRun');
+  const status = document.getElementById('simStatus');
+  const profile = document.getElementById('simProfile').value;
+  btn.disabled = true;
+  status.textContent = 'running…';
+  try {
+    const r = await fetch('/api/burst?profile=' + profile, { method: 'POST' });
+    const j = await r.json();
+    status.textContent = `done — sent ${fmt(j.sent)} reqs, allowed ${fmt(j.allowed)}, rejected ${fmt(j.rejected)} in ${fmt(j.duration_ms)} ms`;
+  } catch (e) {
+    status.textContent = 'error: ' + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+pollConfig();
+pollMetrics(); pollAlerts();
+setInterval(pollMetrics, 1000);
+setInterval(pollAlerts, 1500);
+</script>
+</body>
+</html>

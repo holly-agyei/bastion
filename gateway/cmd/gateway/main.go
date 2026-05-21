@@ -12,6 +12,7 @@ import (
 
 	"github.com/holly-agyei/bastion/gateway/internal/config"
 	"github.com/holly-agyei/bastion/gateway/internal/forwarder"
+	"github.com/holly-agyei/bastion/gateway/internal/metrics"
 	"github.com/holly-agyei/bastion/gateway/internal/ratelimit"
 	"github.com/holly-agyei/bastion/gateway/internal/server"
 	"github.com/holly-agyei/bastion/gateway/internal/telemetry"
@@ -60,7 +61,25 @@ func main() {
 	prod := telemetry.NewProducer(cfg.KafkaBrokers, cfg.KafkaTopic, log)
 	defer func() { _ = prod.Close() }()
 
-	srv := server.New(limiter, pool, prod, cfg.DefaultLimit, cfg.ClientHeader, log)
+	// Mirror the autoscaler-monitor's spike rule in-process so the dashboard
+	// surfaces the same alerts the Kafka consumer would fire.
+	//   snapshotWindow=60s  (UI history)
+	//   spikeWindow=5s      (matches autoscaler-monitor's WINDOW_SEC)
+	//   threshold=1000      (matches autoscaler-monitor's THRESHOLD)
+	//   cooldown=5s         (matches autoscaler-monitor's COOLDOWN_SEC for demo)
+	rec := metrics.New(60, 5, 1000, 5*time.Second)
+
+	srv := server.New(server.Options{
+		Limiter:      limiter,
+		Pool:         pool,
+		Producer:     prod,
+		Recorder:     rec,
+		Limit:        cfg.DefaultLimit,
+		WindowMs:     cfg.WindowMs,
+		ClientHeader: cfg.ClientHeader,
+		ListenAddr:   cfg.ListenAddr,
+		Log:          log,
+	})
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()

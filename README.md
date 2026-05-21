@@ -6,7 +6,41 @@ quotas via an atomic Redis Lua script, forwards allowed traffic to a Java
 rejection events to Kafka where a separate Go consumer (`autoscaler-monitor`)
 turns rejection spikes into scale-out alerts.
 
-The whole thing runs locally with `docker compose up`.
+The whole thing runs locally with `docker compose up`, ships with a
+self-contained live dashboard at `http://localhost:8080/ui`, and can
+generate its own simulation traffic to demo the rate limiter and
+spike-detector end to end.
+
+## Live dashboard
+
+The gateway serves an embedded HTML dashboard at `/ui` that polls
+`/api/metrics`, `/api/alerts`, and `/api/config` every second. A built-in
+traffic generator (`POST /api/burst?profile=…`) drives load against the
+gateway's own `/process` endpoint so you can see the limiter and
+spike-detector react in real time.
+
+**Idle state** — clean baseline, no traffic, no alerts:
+
+![idle dashboard](docs/screenshots/01_idle.png)
+
+**During a mixed simulation** — 1 500 r/s honest clients (green band,
+forwarded to the gRPC backend) running alongside 3 000 r/s abusive
+clients (red band, 429'd by the limiter and published to Kafka):
+
+![during burst](docs/screenshots/02_during_burst.png)
+
+**Post-burst** — full 60 s history of throughput and latency, plus the
+spike alert that the in-process detector (running the same rule as the
+Kafka-driven `autoscaler-monitor`) emitted when rejections crossed
+1 000 / 5 s:
+
+![after burst alert](docs/screenshots/03_after_burst_alert.png)
+
+The latency chart in the second and third screenshots shows the
+backend-saturation cliff: p95 jumps from a few ms at baseline to
+~110 ms while the gRPC backend is queueing the allowed-band traffic,
+then settles right back. This is exactly the signal you'd want a
+production autoscaler to see and react to.
 
 ## Measured numbers (this stack, single host)
 

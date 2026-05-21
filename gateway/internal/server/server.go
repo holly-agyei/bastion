@@ -2,20 +2,26 @@ package server
 
 import (
 	"context"
-	"crypto/rand"
+	cryptorand "crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
+	v2rand "math/rand/v2"
 	"net/http"
 	"os"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/holly-agyei/bastion/gateway/internal/forwarder"
+	"github.com/holly-agyei/bastion/gateway/internal/metrics"
 	"github.com/holly-agyei/bastion/gateway/internal/ratelimit"
 	"github.com/holly-agyei/bastion/gateway/internal/telemetry"
+	"github.com/holly-agyei/bastion/gateway/internal/ui"
 	servicev1 "github.com/holly-agyei/bastion/gateway/proto/service"
 )
 
@@ -23,27 +29,43 @@ type Server struct {
 	limiter      *ratelimit.Limiter
 	pool         *forwarder.Pool
 	prod         *telemetry.Producer
+	rec          *metrics.Recorder
 	limit        int64
+	windowMs     int64
 	clientHeader string
 	nodeID       string
 	log          *slog.Logger
+	listenAddr   string
 
 	allowed  uint64
 	rejected uint64
 }
 
-func New(limiter *ratelimit.Limiter, pool *forwarder.Pool, prod *telemetry.Producer,
-	limit int64, clientHeader string, log *slog.Logger,
-) *Server {
+type Options struct {
+	Limiter      *ratelimit.Limiter
+	Pool         *forwarder.Pool
+	Producer     *telemetry.Producer
+	Recorder     *metrics.Recorder
+	Limit        int64
+	WindowMs     int64
+	ClientHeader string
+	ListenAddr   string
+	Log          *slog.Logger
+}
+
+func New(o Options) *Server {
 	host, _ := os.Hostname()
 	return &Server{
-		limiter:      limiter,
-		pool:         pool,
-		prod:         prod,
-		limit:        limit,
-		clientHeader: clientHeader,
+		limiter:      o.Limiter,
+		pool:         o.Pool,
+		prod:         o.Producer,
+		rec:          o.Recorder,
+		limit:        o.Limit,
+		windowMs:     o.WindowMs,
+		clientHeader: o.ClientHeader,
 		nodeID:       host,
-		log:          log,
+		log:          o.Log,
+		listenAddr:   o.ListenAddr,
 	}
 }
 
@@ -51,6 +73,12 @@ func (s *Server) Routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", s.healthz)
 	mux.HandleFunc("/stats", s.stats)
+	mux.HandleFunc("/ui", s.serveUI)
+	mux.HandleFunc("/api/metrics", s.apiMetrics)
+	mux.HandleFunc("/api/alerts", s.apiAlerts)
+	mux.HandleFunc("/api/config", s.apiConfig)
+	mux.HandleFunc("/api/burst", s.apiBurst)
+	mux.HandleFunc("/process", s.handle)
 	mux.HandleFunc("/", s.handle)
 	return mux
 }
@@ -68,7 +96,31 @@ func (s *Server) stats(w http.ResponseWriter, _ *http.Request) {
 	_, _ = w.Write([]byte("bastion_rejected_total " + strconv.FormatUint(r, 10) + "\n"))
 }
 
+func (s *Server) serveUI(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	_, _ = w.Write(ui.IndexHTML)
+}
+
+func (s *Server) apiMetrics(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, s.rec.Snapshot())
+}
+
+func (s *Server) apiAlerts(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, s.rec.Alerts())
+}
+
+func (s *Server) apiConfig(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, map[string]any{
+		"limit":         s.limit,
+		"window_ms":     s.windowMs,
+		"client_header": s.clientHeader,
+		"node_id":       s.nodeID,
+	})
+}
+
 func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	ctx := r.Context()
 	clientID := r.Header.Get(s.clientHeader)
 	if clientID == "" {
@@ -100,6 +152,7 @@ func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 			CountInWin: decision.Count,
 			NodeID:     s.nodeID,
 		})
+		s.rec.RecordRejected(time.Since(start))
 		return
 	}
 
@@ -131,11 +184,156 @@ func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Backend-Node", resp.NodeId)
 	w.WriteHeader(int(resp.StatusCode))
 	_, _ = w.Write(resp.Payload)
+	s.rec.RecordAllowed(time.Since(start))
+}
+
+// apiBurst spawns synthetic traffic from inside the gateway process against
+// its own /process endpoint. This is a dashboard convenience — useful for
+// demos and screenshots — not a production endpoint. Behaviour is bounded
+// (max ~20k total requests, ≤ 10s wallclock) so it can't be used to DoS.
+func (s *Server) apiBurst(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "POST only", http.StatusMethodNotAllowed)
+		return
+	}
+	profile := r.URL.Query().Get("profile")
+	if profile == "" {
+		profile = "mixed"
+	}
+
+	type leg struct {
+		rps     int
+		dur     time.Duration
+		abusers int // 0 means many random clients (under quota)
+	}
+	var legs []leg
+	switch profile {
+	case "burst":
+		legs = []leg{{rps: 3000, dur: 5 * time.Second, abusers: 4}}
+	case "sustained":
+		legs = []leg{{rps: 1500, dur: 10 * time.Second, abusers: 0}}
+	case "mixed":
+		legs = []leg{
+			{rps: 1500, dur: 8 * time.Second, abusers: 0},
+			{rps: 3000, dur: 5 * time.Second, abusers: 4},
+		}
+	default:
+		http.Error(w, "unknown profile", http.StatusBadRequest)
+		return
+	}
+
+	origin := "http://127.0.0.1" + s.listenAddr
+	if s.listenAddr != "" && s.listenAddr[0] == ':' {
+		origin = "http://127.0.0.1" + s.listenAddr
+	}
+
+	hc := &http.Client{
+		Timeout: 3 * time.Second,
+		Transport: &http.Transport{
+			MaxIdleConns:        2048,
+			MaxIdleConnsPerHost: 2048,
+			IdleConnTimeout:     30 * time.Second,
+		},
+	}
+
+	var allowedCt, rejectedCt, sent int64
+	startWall := time.Now()
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	var wg sync.WaitGroup
+	for _, l := range legs {
+		go func(l leg) {}(l) // no-op; spacing
+		wg.Add(1)
+		go func(l leg) {
+			defer wg.Done()
+			runLeg(ctx, hc, origin, s.clientHeader, l.rps, l.dur, l.abusers,
+				&allowedCt, &rejectedCt, &sent)
+		}(l)
+	}
+	wg.Wait()
+	writeJSON(w, map[string]any{
+		"profile":     profile,
+		"duration_ms": time.Since(startWall).Milliseconds(),
+		"sent":        atomic.LoadInt64(&sent),
+		"allowed":     atomic.LoadInt64(&allowedCt),
+		"rejected":    atomic.LoadInt64(&rejectedCt),
+	})
+}
+
+func runLeg(ctx context.Context, hc *http.Client, origin, header string,
+	rps int, dur time.Duration, abusers int,
+	allowedCt, rejectedCt, sentCt *int64,
+) {
+	// We don't try to be a precise rate generator; the goal is to be visibly
+	// busy in the dashboard for `dur` seconds and to overshoot the per-client
+	// quota when abusers > 0. A token bucket over a tick keeps us close.
+	tick := 5 * time.Millisecond
+	tokensPerTick := float64(rps) * tick.Seconds()
+	t := time.NewTicker(tick)
+	defer t.Stop()
+	deadline := time.Now().Add(dur)
+	sem := make(chan struct{}, 800)
+	var wg sync.WaitGroup
+	var tokens float64
+	for {
+		select {
+		case <-ctx.Done():
+			wg.Wait()
+			return
+		case <-t.C:
+			if time.Now().After(deadline) {
+				wg.Wait()
+				return
+			}
+			tokens += tokensPerTick
+			for tokens >= 1 {
+				tokens -= 1
+				var clientID string
+				if abusers > 0 {
+					clientID = fmt.Sprintf("sim-abuser-%d", v2rand.IntN(abusers))
+				} else {
+					clientID = fmt.Sprintf("sim-honest-%d", v2rand.IntN(2000))
+				}
+				select {
+				case sem <- struct{}{}:
+				default:
+					// drop if we can't keep up; the cap protects the gateway
+					continue
+				}
+				wg.Add(1)
+				atomic.AddInt64(sentCt, 1)
+				go func(id string) {
+					defer func() { <-sem; wg.Done() }()
+					req, _ := http.NewRequestWithContext(ctx, http.MethodGet, origin+"/process", nil)
+					req.Header.Set(header, id)
+					resp, err := hc.Do(req)
+					if err != nil {
+						return
+					}
+					_, _ = io.Copy(io.Discard, resp.Body)
+					_ = resp.Body.Close()
+					switch resp.StatusCode {
+					case 200:
+						atomic.AddInt64(allowedCt, 1)
+					case 429:
+						atomic.AddInt64(rejectedCt, 1)
+					}
+				}(clientID)
+			}
+		}
+	}
+}
+
+func writeJSON(w http.ResponseWriter, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	_ = json.NewEncoder(w).Encode(v)
 }
 
 func newReqID() string {
 	var b [12]byte
-	if _, err := rand.Read(b[:]); err != nil {
+	if _, err := cryptorand.Read(b[:]); err != nil {
 		// Fallback: caller doesn't need cryptographic uniqueness, just
 		// distinguishability inside the ZSET. time-based is fine.
 		t := time.Now().UnixNano()
