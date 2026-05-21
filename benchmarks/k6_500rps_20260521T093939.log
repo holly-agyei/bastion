@@ -1,0 +1,163 @@
+
+          /\      |‾‾| /‾‾/   /‾‾/   
+     /\  /  \     |  |/  /   /  /    
+    /  \/    \    |     (   /   ‾‾\  
+   /          \   |  |\  \ |  (‾)  | 
+  / __________ \  |__| \__\ \_____/ .io
+
+     execution: local
+        script: /loadtest/load.js
+        output: -
+
+     scenarios: (100.00%) 2 scenarios, 6000 max VUs, 1m0s max duration (incl. graceful stop):
+              * bursty: 4000.00 iterations/s for 30s (maxVUs: 400-4000, exec: bursty, gracefulStop: 30s)
+              * sustained: 500.00 iterations/s for 30s (maxVUs: 500-2000, exec: sustained, gracefulStop: 30s)
+
+
+running (0m00.9s), 0027/0903 VUs, 3951 complete and 0 interrupted iterations
+bursty      [   3% ] 0021/0403 VUs  00.9s/30s  4000.00 iters/s
+sustained   [   3% ] 0006/0500 VUs  00.9s/30s  500.00 iters/s
+
+running (0m01.9s), 0015/0903 VUs, 8461 complete and 0 interrupted iterations
+bursty      [   6% ] 0012/0403 VUs  01.9s/30s  4000.00 iters/s
+sustained   [   6% ] 0003/0500 VUs  01.9s/30s  500.00 iters/s
+
+running (0m02.9s), 0013/0903 VUs, 12965 complete and 0 interrupted iterations
+bursty      [  10% ] 0011/0403 VUs  02.9s/30s  4000.00 iters/s
+sustained   [  10% ] 0002/0500 VUs  02.9s/30s  500.00 iters/s
+
+running (0m03.9s), 0004/0903 VUs, 17473 complete and 0 interrupted iterations
+bursty      [  13% ] 0003/0403 VUs  03.9s/30s  4000.00 iters/s
+sustained   [  13% ] 0001/0500 VUs  03.9s/30s  500.00 iters/s
+
+running (0m04.9s), 0056/0903 VUs, 21921 complete and 0 interrupted iterations
+bursty      [  16% ] 0049/0403 VUs  04.9s/30s  4000.00 iters/s
+sustained   [  16% ] 0007/0500 VUs  04.9s/30s  500.00 iters/s
+
+running (0m05.9s), 0033/0903 VUs, 26444 complete and 0 interrupted iterations
+bursty      [  20% ] 0027/0403 VUs  05.9s/30s  4000.00 iters/s
+sustained   [  20% ] 0006/0500 VUs  05.9s/30s  500.00 iters/s
+
+running (0m06.9s), 0006/0903 VUs, 30971 complete and 0 interrupted iterations
+bursty      [  23% ] 0005/0403 VUs  06.9s/30s  4000.00 iters/s
+sustained   [  23% ] 0001/0500 VUs  06.9s/30s  500.00 iters/s
+
+running (0m07.9s), 0011/0903 VUs, 35466 complete and 0 interrupted iterations
+bursty      [  26% ] 0009/0403 VUs  07.9s/30s  4000.00 iters/s
+sustained   [  26% ] 0002/0500 VUs  07.9s/30s  500.00 iters/s
+
+running (0m08.9s), 0015/0903 VUs, 39962 complete and 0 interrupted iterations
+bursty      [  30% ] 0014/0403 VUs  08.9s/30s  4000.00 iters/s
+sustained   [  30% ] 0001/0500 VUs  08.9s/30s  500.00 iters/s
+
+running (0m09.9s), 0009/0903 VUs, 44467 complete and 0 interrupted iterations
+bursty      [  33% ] 0006/0403 VUs  09.9s/30s  4000.00 iters/s
+sustained   [  33% ] 0003/0500 VUs  09.9s/30s  500.00 iters/s
+
+running (0m10.9s), 0012/0903 VUs, 48968 complete and 0 interrupted iterations
+bursty      [  36% ] 0010/0403 VUs  10.9s/30s  4000.00 iters/s
+sustained   [  36% ] 0002/0500 VUs  10.9s/30s  500.00 iters/s
+
+running (0m11.9s), 0008/0903 VUs, 53469 complete and 0 interrupted iterations
+bursty      [  40% ] 0006/0403 VUs  11.9s/30s  4000.00 iters/s
+sustained   [  40% ] 0002/0500 VUs  11.9s/30s  500.00 iters/s
+
+running (0m12.9s), 0107/0903 VUs, 57879 complete and 0 interrupted iterations
+bursty      [  43% ] 0094/0403 VUs  12.9s/30s  4000.00 iters/s
+sustained   [  43% ] 0013/0500 VUs  12.9s/30s  500.00 iters/s
+
+running (0m13.9s), 0129/0903 VUs, 62340 complete and 0 interrupted iterations
+bursty      [  46% ] 0113/0403 VUs  13.9s/30s  4000.00 iters/s
+sustained   [  46% ] 0016/0500 VUs  13.9s/30s  500.00 iters/s
+
+running (0m14.9s), 0025/0903 VUs, 66956 complete and 0 interrupted iterations
+bursty      [  50% ] 0019/0403 VUs  14.9s/30s  4000.00 iters/s
+sustained   [  50% ] 0006/0500 VUs  14.9s/30s  500.00 iters/s
+
+running (0m15.9s), 0007/0903 VUs, 71469 complete and 0 interrupted iterations
+bursty      [  53% ] 0006/0403 VUs  15.9s/30s  4000.00 iters/s
+sustained   [  53% ] 0001/0500 VUs  15.9s/30s  500.00 iters/s
+
+running (0m16.9s), 0005/0904 VUs, 75967 complete and 0 interrupted iterations
+bursty      [  56% ] 0003/0404 VUs  16.9s/30s  4000.00 iters/s
+sustained   [  56% ] 0002/0500 VUs  16.9s/30s  500.00 iters/s
+
+running (0m17.9s), 0004/0904 VUs, 80467 complete and 0 interrupted iterations
+bursty      [  60% ] 0004/0404 VUs  17.9s/30s  4000.00 iters/s
+sustained   [  60% ] 0001/0500 VUs  17.9s/30s  500.00 iters/s
+
+running (0m18.9s), 0029/0904 VUs, 84938 complete and 0 interrupted iterations
+bursty      [  63% ] 0023/0404 VUs  18.9s/30s  4000.00 iters/s
+sustained   [  63% ] 0006/0500 VUs  18.9s/30s  500.00 iters/s
+
+running (0m19.9s), 0103/0904 VUs, 89351 complete and 0 interrupted iterations
+bursty      [  66% ] 0095/0404 VUs  19.9s/30s  4000.00 iters/s
+sustained   [  66% ] 0008/0500 VUs  19.9s/30s  500.00 iters/s
+
+running (0m20.9s), 0044/0904 VUs, 93920 complete and 0 interrupted iterations
+bursty      [  70% ] 0038/0404 VUs  20.9s/30s  4000.00 iters/s
+sustained   [  70% ] 0006/0500 VUs  20.9s/30s  500.00 iters/s
+
+running (0m21.9s), 0017/0904 VUs, 98458 complete and 0 interrupted iterations
+bursty      [  73% ] 0015/0404 VUs  21.9s/30s  4000.00 iters/s
+sustained   [  73% ] 0002/0500 VUs  21.9s/30s  500.00 iters/s
+
+running (0m22.9s), 0010/0904 VUs, 102962 complete and 0 interrupted iterations
+bursty      [  76% ] 0008/0404 VUs  22.9s/30s  4000.00 iters/s
+sustained   [  76% ] 0002/0500 VUs  22.9s/30s  500.00 iters/s
+
+running (0m23.9s), 0005/0904 VUs, 107467 complete and 0 interrupted iterations
+bursty      [  80% ] 0004/0404 VUs  23.9s/30s  4000.00 iters/s
+sustained   [  80% ] 0001/0500 VUs  23.9s/30s  500.00 iters/s
+
+running (0m24.9s), 0030/0904 VUs, 111936 complete and 0 interrupted iterations
+bursty      [  83% ] 0025/0404 VUs  24.9s/30s  4000.00 iters/s
+sustained   [  83% ] 0005/0500 VUs  24.9s/30s  500.00 iters/s
+
+running (0m25.9s), 0045/0904 VUs, 116427 complete and 0 interrupted iterations
+bursty      [  86% ] 0040/0404 VUs  25.9s/30s  4000.00 iters/s
+sustained   [  86% ] 0005/0500 VUs  25.9s/30s  500.00 iters/s
+
+running (0m26.9s), 0034/0904 VUs, 120945 complete and 0 interrupted iterations
+bursty      [  90% ] 0032/0404 VUs  26.9s/30s  4000.00 iters/s
+sustained   [  90% ] 0002/0500 VUs  26.9s/30s  500.00 iters/s
+
+running (0m27.9s), 0014/0904 VUs, 125455 complete and 0 interrupted iterations
+bursty      [  93% ] 0012/0404 VUs  27.9s/30s  4000.00 iters/s
+sustained   [  93% ] 0002/0500 VUs  27.9s/30s  500.00 iters/s
+
+running (0m28.9s), 0006/0904 VUs, 129967 complete and 0 interrupted iterations
+bursty      [  96% ] 0005/0404 VUs  28.9s/30s  4000.00 iters/s
+sustained   [  96% ] 0001/0500 VUs  28.9s/30s  500.00 iters/s
+
+running (0m29.9s), 0029/0904 VUs, 134456 complete and 0 interrupted iterations
+bursty      [ 100% ] 0026/0404 VUs  29.9s/30s  4000.00 iters/s
+sustained   [ 100% ] 0003/0500 VUs  29.9s/30s  500.00 iters/s
+
+     ✓ bursty 200 or 429
+     ✓ sustained ok or 429
+
+     checks............................................: 100.00% ✓ 134966      ✗ 0    
+     data_received.....................................: 25 MB   820 kB/s
+     data_sent.........................................: 15 MB   486 kB/s
+     dropped_iterations................................: 36      1.199914/s
+     http_req_blocked..................................: avg=94.18µs  min=1.05µs   med=2.63µs  max=110.18ms p(90)=4.01µs   p(95)=4.82µs  
+     http_req_connecting...............................: avg=49.1µs   min=0s       med=0s      max=68.56ms  p(90)=0s       p(95)=0s      
+     http_req_duration.................................: avg=10.12ms  min=187.45µs med=5.68ms  max=236.07ms p(90)=24.67ms  p(95)=34.99ms 
+       { expected_response:true }......................: avg=15.75ms  min=701.65µs med=11.04ms max=236.07ms p(90)=35.13ms  p(95)=48.29ms 
+     ✓ { scenario:sustained,expected_response:true }...: avg=11.56ms  min=801.24µs med=7.14ms  max=136.94ms p(90)=26.48ms  p(95)=37.09ms 
+     http_req_failed...................................: 66.65%  ✓ 89965       ✗ 45001
+     http_req_receiving................................: avg=318.03µs min=7.84µs   med=19.04µs max=103.15ms p(90)=102.87µs p(95)=246.66µs
+     http_req_sending..................................: avg=417.49µs min=4.58µs   med=9.92µs  max=143.24ms p(90)=128.48µs p(95)=403.3µs 
+     http_req_tls_handshaking..........................: avg=0s       min=0s       med=0s      max=0s       p(90)=0s       p(95)=0s      
+     http_req_waiting..................................: avg=9.39ms   min=162.56µs med=5.47ms  max=133.92ms p(90)=23.26ms  p(95)=32.06ms 
+     http_reqs.........................................: 134966  4498.543508/s
+     iteration_duration................................: avg=10.46ms  min=251.98µs med=5.84ms  max=236.17ms p(90)=25.21ms  p(95)=36.09ms 
+     iterations........................................: 134966  4498.543508/s
+     vus...............................................: 27      min=3         max=127
+     vus_max...........................................: 904     min=903       max=904
+
+
+running (0m30.0s), 0000/0904 VUs, 134966 complete and 0 interrupted iterations
+bursty    ✓ [ 100% ] 0000/0404 VUs  30s  4000.00 iters/s
+sustained ✓ [ 100% ] 0000/0500 VUs  30s  500.00 iters/s

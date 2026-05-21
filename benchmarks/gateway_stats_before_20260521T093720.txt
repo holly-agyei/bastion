@@ -1,0 +1,2 @@
+bastion_allowed_total 112053
+bastion_rejected_total 50893

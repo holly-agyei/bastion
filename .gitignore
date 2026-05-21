@@ -1,0 +1,28 @@
+# Go
+gateway/gateway
+autoscaler/autoscaler
+*.test
+*.out
+
+# Java
+backend/target/
+
+# Generated protobuf code is checked in for ease of clone+build,
+# but we ignore stray local copies under build dirs.
+**/build/
+**/.gradle/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Local / OS
+.DS_Store
+*.log
+!benchmarks/*.log
+.claude/
+
+# k6 / benchmark intermediates
+benchmarks/*.tmp
+benchmarks/_runs/

@@ -1,0 +1,2 @@
+bastion_allowed_total 0
+bastion_rejected_total 0
