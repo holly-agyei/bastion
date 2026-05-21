@@ -217,36 +217,6 @@ TARGET_RPS=3000 DURATION=30s ./scripts/run_bench.sh
 # → benchmarks/k6_3000rps_<stamp>.json and .log
 ```
 
-## Resume bullets, rewritten honestly
-
-The line about the prompt that started this project asked for four
-specific marketing-style bullets. Here are the same four claims rewritten
-to match what this repo actually does, with links to the evidence:
-
-1. **Built a Go edge router that terminates HTTP, enforces per-client
-   sliding-window quotas via an atomic Redis Lua script, and forwards
-   allowed traffic to a Java 21 gRPC backend over a 32-connection
-   multiplexed HTTP/2 pool.** Single-host ceiling on a 6-vCPU VM:
-   ≈ 6 500 req/s combined ([benchmarks/RESULTS.md](benchmarks/RESULTS.md)).
-
-2. **Used a sharded keyspace (64 shards, hash-tag-free for Redis Cluster
-   compatibility) with an atomic EVALSHA sliding-window script.**
-   Validated at **100 % accuracy** in a 5 000-goroutine
-   contention test under `-race` — see
-   [ratelimit_test.go::TestAllow_ConcurrentAccuracy](gateway/internal/ratelimit/ratelimit_test.go).
-
-3. **Chose gRPC over HTTP/2 (multiplexed) for the gateway → backend hop
-   over HTTP/1.1 keep-alive.** Measured end-to-end p50 of
-   **7.14 ms** under low load and p95 37.09 ms — see
-   [benchmarks/RESULTS.md](benchmarks/RESULTS.md). I did not implement an
-   HTTP/1.1 control path so I'm not quoting a delta against it.
-
-4. **Streamed rejection events to a dedicated Kafka topic
-   (`telemetry.rejections`) consumed by a sliding-counter alerter
-   (`autoscaler-monitor`).** Measured **rejection → first ALERT
-   wallclock: 1.79 s** at 3 000 req/s burst with a 1 000-rejection /
-   5-second threshold.
-
 ## License
 
 MIT.
